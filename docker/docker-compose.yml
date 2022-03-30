@@ -1,0 +1,171 @@
+version: '3.2'
+services:
+  # Service Discovery - https://microservices.io/patterns/server-side-discovery.html
+  consul:
+    image: consul:latest
+    container_name: consul
+    environment:
+      - CONSUL_LOCAL_CONFIG={"enable_debug":true}
+    ports:
+      - 8500:8500
+    command: "agent -server -bootstrap -ui -client=0.0.0.0"
+    networks:
+      net:
+        aliases:
+          - consul
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - 6379:6379
+    networks:
+      net:
+        aliases:
+          - redis
+
+  # Api Gateway - https://microservices.io/patterns/apigateway.html
+  gateway:
+    image: fielcapao/spring-cloud-gateway-consul-client:latest
+    container_name: spring-cloud-gateway
+    environment:
+      - SPRING_CONFIG_IMPORT=consul:consul:8500
+#      - JAVA_OPTS=-Xms256M -Xmx512M
+    depends_on:
+      - consul
+    deploy:
+      resources:
+        limits:
+#          cpus: "0.50"
+          memory: 512M
+        reservations:
+#          cpus: "0.25"
+          memory: 256M
+    ports:
+      - 8080:8080
+    networks:
+      net:
+        aliases:
+          - gateway
+
+  hello-world:
+    image: hello-world:0.0.1-SNAPSHOT
+    environment:
+      - SPRING_PROFILES_ACTIVE=redis
+      - SPRING_REDIS_HOST=redis
+      - SPRING_CONFIG_IMPORT=consul:consul:8500
+      - SERVER_PORT=8081
+#      - JAVA_OPTS=-Xms256M -Xmx512M
+    ports:
+      - 8081:8081
+    depends_on:
+      - redis
+      - consul
+    deploy:
+      resources:
+        limits:
+#          cpus: "0.50"
+          memory: 1G
+        reservations:
+#          cpus: "0.25"
+          memory: 512M
+    networks:
+      net:
+        aliases:
+          - hello-world
+
+  hello-world2:
+    image: hello-world:0.0.1-SNAPSHOT
+    environment:
+      - SPRING_PROFILES_ACTIVE=redis
+      - SPRING_REDIS_HOST=redis
+      - SPRING_CONFIG_IMPORT=consul:consul:8500
+      - SERVER_PORT=8082
+#      - JAVA_OPTS=-Xms256M -Xmx512M
+    ports:
+      - 8082:8082
+    depends_on:
+      - redis
+      - consul
+    deploy:
+      resources:
+        limits:
+#          cpus: "0.50"
+          memory: 1G
+        reservations:
+#          cpus: "0.25"
+          memory: 512M
+    networks:
+      net:
+        aliases:
+          - hello-world2
+
+  hello-world3:
+    image: hello-world:0.0.1-SNAPSHOT
+    environment:
+      - SPRING_PROFILES_ACTIVE=redis
+      - SPRING_REDIS_HOST=redis
+      - SPRING_CONFIG_IMPORT=consul:consul:8500
+      - SERVER_PORT=8083
+#      - JAVA_OPTS=-Xms256M -Xmx512M
+    ports:
+      - 8083:8083
+    depends_on:
+      - redis
+      - consul
+    deploy:
+      resources:
+        limits:
+#          cpus: "0.50"
+          memory: 1G
+        reservations:
+#          cpus: "0.25"
+          memory: 512M
+    networks:
+      net:
+        aliases:
+          - hello-world3
+
+  # Metrics
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      net:
+        aliases:
+          - prometheus
+
+  # Dashboard
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SERVER_HTTP_PORT=3000
+    networks:
+      net:
+        aliases:
+          - grafana
+
+  setup_grafana_datasource:
+    image: appropriate/curl
+    container_name: setup_grafana_datasource
+    depends_on:
+      - grafana
+    volumes:
+      - ./create-datasource-and-dashboard.sh:/create.sh:ro
+    command: /create.sh
+    networks:
+      net:
+        aliases:
+          - setup_grafana_datasource
+
+networks:
+  net:

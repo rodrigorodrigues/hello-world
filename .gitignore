@@ -31,3 +31,5 @@ build/
 
 ### VS Code ###
 .vscode/
+test_result_springboot
+jmeter.log
