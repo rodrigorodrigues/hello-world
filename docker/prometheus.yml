@@ -20,8 +20,48 @@ scrape_configs:
     static_configs:
       - targets: ['0.0.0.0:9090']
 
-  - job_name: 'hello-world'
+#  - job_name: 'hello-world'
+#    metrics_path: '/actuator/prometheus'
+#    scrape_interval: 15s
+#    static_configs:
+#      - targets: ['hello-world:8081', 'hello-world2:8082', 'hello-world3:8083']
+
+  - job_name: node-exporter
     metrics_path: '/actuator/prometheus'
     scrape_interval: 15s
-    static_configs:
-      - targets: ['hello-world:8081', 'hello-world2:8082', 'hello-world3:8083']
+    honor_labels: true
+    consul_sd_configs:
+      - server: consul:8500
+        services: [node-exporter]
+    relabel_configs:
+      - source_labels: [__meta_consul_tags]
+        regex: ^.*,_team=storefront,.*$
+        action: keep
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_app=([^,]+),.*
+        replacement: ${1}
+        target_label: _app
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_service=([^,]+),.*
+        replacement: ${1}
+        target_label: _service
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_hostname=([^,]+),.*
+        replacement: ${1}
+        target_label: _hostname
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_environment=([^,]+),.*
+        replacement: ${1}
+        target_label: _environment
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_cluster=([^,]+),.*
+        replacement: ${1}
+        target_label: _cluster
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_es_role=([^,]+),.*
+        replacement: ${1}
+        target_label: _es_role
+      - source_labels: [__meta_consul_tags]
+        regex: .*,_team=([^,]+),.*
+        replacement: ${1}
+        target_label: _team
