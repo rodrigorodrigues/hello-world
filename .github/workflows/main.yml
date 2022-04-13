@@ -17,7 +17,6 @@ jobs:
   build:
     name: GraalVM - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
