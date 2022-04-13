@@ -70,15 +70,15 @@ jobs:
 
       - name: Build native images
         run: mvn -B -ntp package -Pnative -DskipTests
-        
+
+      - name: Rename binary
+        run: mv target/hello-world target/hello-world-${{ matrix.os }}-x86_64
+
       - name: Archive binary
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: hello-world-${{ matrix.os }}-x86_64
           path: target
-
-      - name: Rename binary
-        run: mv target/hello-world target/hello-world-${{ matrix.os }}-${{ github.event.release.tag_name }}-x86_64
         
       - name: Upload release
         uses: alexellis/upload-assets@0.3.0
