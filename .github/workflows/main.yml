@@ -11,24 +11,83 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+env:
+  graalvm_version: '22.0.0.2'
+  java_version: '17'
+  branch: 'spring-native'
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
-    runs-on: self-hosted
+    name: GraalVM - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        graalvm: [graalvm-ce-java17-linux-amd64-dev, graalvm-ce-java17-darwin-aarch64-dev]
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          version: ${{ matrix.graalvm }}
+          java-version: '17'
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Example step
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          echo "GRAALVM_HOME: $GRAALVM_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
+          java --version
+          gu --version
+          native-image --version
+
+      # Run commands on aarch64
+      - name: Run on aarch64
+        uses: uraimo/run-on-arch-action@v2
+        if: matrix.os == 'self-hosted'
+        id: runcmd
+        with:
+          arch: aarch64
+          distro: ubuntu20.04
+
+          # Not required, but speeds up builds by storing container images in
+          # a GitHub package registry.
+          githubToken: ${{ github.token }}
+
+          # Set an output parameter `uname` for use in subsequent steps
+          run: |
+            uname -a
+            echo ::set-output name=uname::$(uname -a)
+            
+      # Set up JDK 11
+      - name: JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          cache: 'maven'
+
+      - name: Build native images
+        run: mvn -B -ntp package -Pnative,prod -DskipTests
+        
+      - name: Archive binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: hello-world-${{ matrix.os }}-x86_64
+          path: target
+
+      - name: Rename binary
+        run: mv target/hello-world target/hello-world-${{ runner.os }}-${{ github.event.release.tag_name }}-x86_64
+        
+      - name: Upload release
+        uses: alexellis/upload-assets@0.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          asset_paths: '["target/hello-world-${{ runner.os }}*"]'
